@@ -39,12 +39,17 @@ import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.DeveloperMode
 import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.FlashOn
+import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.Language
+import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.SportsEsports
 import androidx.compose.material.icons.filled.Tune
+import androidx.compose.material.icons.filled.ViewAgenda
+import androidx.compose.material.icons.filled.Wifi
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -85,7 +90,11 @@ import com.example.system.SystemDevBridge
 import com.example.system.SystemTelemetry
 import com.example.ui.components.AnimatedWolfLogo
 import com.example.ui.components.DevToolCard
+import com.example.ui.components.FullSessionsAccordion
+import com.example.ui.components.InternetToolsCard
 import com.example.ui.components.LanguageSelectorDialog
+import com.example.ui.components.PermissionsManagerModal
+import com.example.ui.components.SessionsGridMatrix
 import com.example.ui.components.TelemetryHeader
 import com.example.ui.components.ToolDetailModal
 import com.example.ui.theme.CyberBluePrimary
@@ -102,6 +111,13 @@ import com.example.ui.theme.WolfDarkSurface
 import com.example.ui.theme.WolfDarkSurfaceVariant
 import kotlinx.coroutines.launch
 
+enum class SessionsViewModel {
+    ALL_SESSIONS_EXPANDED, // Vista "Todas las Sesiones Desglosadas"
+    SESSIONS_MATRIX,       // Vista "Matriz 12x de Sesiones"
+    INTERNET_NETWORK_HUB,  // Vista "Diagnóstico Internet & Red"
+    FILTERED_LIST          // Vista "Lista Rápida / Filtros"
+}
+
 @Composable
 fun MainScreen(
     currentLanguage: AppLanguage,
@@ -116,6 +132,10 @@ fun MainScreen(
     val telemetryFlow = remember { SystemDevBridge.streamTelemetry(context) }
     val telemetry by telemetryFlow.collectAsState(initial = SystemDevBridge.getTelemetry(context))
 
+    // Sessions View Model State
+    var currentViewModel by remember { mutableStateOf(SessionsViewModel.ALL_SESSIONS_EXPANDED) }
+    var showPermissionsModal by remember { mutableStateOf(false) }
+
     // Search and category filters
     var searchQuery by remember { mutableStateOf("") }
     var selectedCategory by remember { mutableStateOf<DevCategory?>(null) }
@@ -125,7 +145,7 @@ fun MainScreen(
     // User-selected options state mapping: toolId -> optionValue
     val appliedOptions = remember { mutableStateMapOf<String, String>() }
 
-    // Filtered tools with derivedStateOf for 60/120 fps fluid scrolling
+    // Filtered tools with derivedStateOf for fluid scrolling
     val allTools = remember { DevToolsCatalog.allTools }
     val filteredTools by remember(searchQuery, selectedCategory) {
         derivedStateOf {
@@ -140,6 +160,22 @@ fun MainScreen(
                 }
                 matchesCategory && matchesQuery
             }
+        }
+    }
+
+    // Tools grouped by category for the complete sessions model
+    val toolsByCategory by remember(allTools, searchQuery) {
+        derivedStateOf {
+            val tools = if (searchQuery.isBlank()) allTools else {
+                val q = searchQuery.trim().lowercase()
+                allTools.filter { tool ->
+                    tool.name.lowercase().contains(q) ||
+                    tool.description.lowercase().contains(q) ||
+                    tool.settingKey.lowercase().contains(q) ||
+                    LanguageManager.getCategoryName(tool.category, currentLanguage).lowercase().contains(q)
+                }
+            }
+            tools.groupBy { it.category }
         }
     }
 
@@ -178,7 +214,7 @@ fun MainScreen(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                    .padding(horizontal = 16.dp, vertical = 6.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
@@ -186,9 +222,8 @@ fun MainScreen(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    // Small animated wolf logo
                     AnimatedWolfLogo(
-                        size = 42.dp,
+                        size = 40.dp,
                         showRings = true,
                         isStartup = false,
                         onClick = {
@@ -202,7 +237,7 @@ fun MainScreen(
                             Text(
                                 text = "SUZUKI",
                                 color = TextWhite,
-                                fontSize = 18.sp,
+                                fontSize = 17.sp,
                                 fontWeight = FontWeight.Black,
                                 letterSpacing = 1.sp
                             )
@@ -210,7 +245,7 @@ fun MainScreen(
                             Text(
                                 text = "DEV",
                                 color = CyberBlueSecondary,
-                                fontSize = 18.sp,
+                                fontSize = 17.sp,
                                 fontWeight = FontWeight.Black,
                                 letterSpacing = 1.sp
                             )
@@ -241,8 +276,29 @@ fun MainScreen(
                     }
                 }
 
-                // Action buttons: Language Selector & Quick Refresh
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                // Action buttons: Permissions shortcut & Language Selector
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    // Super Permissions Button
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(CyberBluePrimary.copy(alpha = 0.2f))
+                            .border(1.dp, CyberBluePrimary.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
+                            .clickable { showPermissionsModal = true }
+                            .padding(horizontal = 7.dp, vertical = 6.dp)
+                            .testTag("top_bar_permissions_button"),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+                            Icon(imageVector = Icons.Default.Security, contentDescription = null, tint = CyberBlueSecondary, modifier = Modifier.size(13.dp))
+                            Text(text = "PERMISOS", color = TextWhite, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+
+                    // Language button
                     Box(
                         modifier = Modifier
                             .clip(RoundedCornerShape(8.dp))
@@ -268,19 +324,59 @@ fun MainScreen(
                 }
             }
 
-            // Real-time telemetry header
+            // Real-time telemetry header with internet state & permissions
             TelemetryHeader(
                 telemetry = telemetry,
                 language = currentLanguage,
                 onOpenDevSettings = { SystemDevBridge.openDeveloperSettings(context) },
-                onOpenDeviceInfo = { SystemDevBridge.openDeviceInfoSettings(context) }
+                onOpenDeviceInfo = { SystemDevBridge.openDeviceInfoSettings(context) },
+                onOpenPermissions = { showPermissionsModal = true }
             )
 
-            // Minimalist Search Bar
+            // ========================================================
+            // MODELOS DE SESIONES (SESSIONS VIEW MODEL SELECTOR)
+            // ========================================================
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState())
+                    .padding(horizontal = 16.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                ModelTabPill(
+                    icon = Icons.Default.ViewAgenda,
+                    label = "Todas las Sesiones",
+                    isSelected = currentViewModel == SessionsViewModel.ALL_SESSIONS_EXPANDED,
+                    onClick = { currentViewModel = SessionsViewModel.ALL_SESSIONS_EXPANDED }
+                )
+
+                ModelTabPill(
+                    icon = Icons.Default.GridView,
+                    label = "Matriz 12x",
+                    isSelected = currentViewModel == SessionsViewModel.SESSIONS_MATRIX,
+                    onClick = { currentViewModel = SessionsViewModel.SESSIONS_MATRIX }
+                )
+
+                ModelTabPill(
+                    icon = Icons.Default.Wifi,
+                    label = "Internet & Red",
+                    isSelected = currentViewModel == SessionsViewModel.INTERNET_NETWORK_HUB,
+                    onClick = { currentViewModel = SessionsViewModel.INTERNET_NETWORK_HUB }
+                )
+
+                ModelTabPill(
+                    icon = Icons.Default.List,
+                    label = "Lista Continua",
+                    isSelected = currentViewModel == SessionsViewModel.FILTERED_LIST,
+                    onClick = { currentViewModel = SessionsViewModel.FILTERED_LIST }
+                )
+            }
+
+            // Search Bar
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 4.dp)
+                    .padding(horizontal = 16.dp, vertical = 2.dp)
             ) {
                 OutlinedTextField(
                     value = searchQuery,
@@ -336,7 +432,7 @@ fun MainScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .horizontalScroll(rememberScrollState())
-                    .padding(horizontal = 16.dp, vertical = 4.dp),
+                    .padding(horizontal = 16.dp, vertical = 3.dp),
                 horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 PresetChip(
@@ -390,152 +486,306 @@ fun MainScreen(
                 )
             }
 
-            // Category Filter Scrollable Chips
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .horizontalScroll(rememberScrollState())
-                    .padding(horizontal = 16.dp, vertical = 6.dp),
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                // "All" chip
-                val isAllSelected = selectedCategory == null
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(if (isAllSelected) CyberBluePrimary else WolfDarkSurfaceVariant)
-                        .border(
-                            1.dp,
-                            if (isAllSelected) CyberBlueSecondary else WolfDarkBorder.copy(alpha = 0.4f),
-                            RoundedCornerShape(8.dp)
-                        )
-                        .clickable { selectedCategory = null }
-                        .padding(horizontal = 12.dp, vertical = 6.dp)
-                        .testTag("cat_chip_all")
-                ) {
-                    Text(
-                        text = "${LanguageManager.getUiString("all_categories", currentLanguage)} (${allTools.size})",
-                        color = if (isAllSelected) TextWhite else TextGray,
-                        fontSize = 11.sp,
-                        fontWeight = if (isAllSelected) FontWeight.Bold else FontWeight.Normal
-                    )
-                }
-
-                DevCategory.values().forEach { cat ->
-                    val isCatSelected = selectedCategory == cat
-                    val catCount = allTools.count { it.category == cat }
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(if (isCatSelected) CyberBluePrimary else WolfDarkSurfaceVariant)
-                            .border(
-                                1.dp,
-                                if (isCatSelected) CyberBlueSecondary else WolfDarkBorder.copy(alpha = 0.4f),
-                                RoundedCornerShape(8.dp)
-                            )
-                            .clickable { selectedCategory = cat }
-                            .padding(horizontal = 12.dp, vertical = 6.dp)
-                            .testTag("cat_chip_${cat.name}")
-                    ) {
-                        Text(
-                            text = "${LanguageManager.getCategoryName(cat, currentLanguage)} ($catCount)",
-                            color = if (isCatSelected) TextWhite else TextGray,
-                            fontSize = 11.sp,
-                            fontWeight = if (isCatSelected) FontWeight.Bold else FontWeight.Normal
-                        )
-                    }
-                }
-            }
-
-            // Active Tool Results Counter
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 2.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "${filteredTools.size} HERRAMIENTAS ACTIVAS",
-                    color = TextMuted,
-                    fontSize = 10.sp,
-                    fontWeight = FontWeight.Bold,
-                    fontFamily = FontFamily.Monospace
-                )
-
-                if (searchQuery.isNotEmpty() || selectedCategory != null) {
-                    Text(
-                        text = "Limpiar Filtros",
-                        color = CyberBlueSecondary,
-                        fontSize = 11.sp,
-                        modifier = Modifier.clickable {
-                            searchQuery = ""
-                            selectedCategory = null
-                        }
-                    )
-                }
-            }
-
-            // Fluid LazyColumn for tools list
-            LazyColumn(
-                state = listState,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .testTag("tools_lazy_column"),
-                contentPadding = PaddingValues(bottom = 80.dp)
-            ) {
-                items(
-                    items = filteredTools,
-                    key = { it.id }
-                ) { tool ->
-                    DevToolCard(
-                        tool = tool,
+            // ========================================================
+            // RENDER ACTIVE MODEL
+            // ========================================================
+            when (currentViewModel) {
+                SessionsViewModel.ALL_SESSIONS_EXPANDED -> {
+                    // Visualizes ALL sessions in full accordion format
+                    FullSessionsAccordion(
+                        toolsByCategory = toolsByCategory,
                         language = currentLanguage,
-                        selectedOption = appliedOptions[tool.id],
-                        onSelectOption = { value ->
+                        appliedOptions = appliedOptions,
+                        onSelectOption = { tool, value ->
                             appliedOptions[tool.id] = value
                             SystemDevBridge.applyOptionSafe(
                                 context = context,
                                 tool = tool,
                                 optionValue = value,
                                 onRequiresAdb = { cmd ->
-                                    coroutineScope.launch {
-                                        snackbarHostState.showSnackbar("Comando ADB copiado: $cmd")
-                                    }
+                                    coroutineScope.launch { snackbarHostState.showSnackbar("Comando ADB copiado: $cmd") }
                                 }
                             )
                         },
-                        onOpenSystemIntent = {
+                        onOpenSystemIntent = { tool ->
                             if (tool.intentAction.isNotEmpty()) {
                                 SystemDevBridge.openIntentSafe(context, tool.intentAction)
                             } else {
                                 SystemDevBridge.openDeveloperSettings(context)
                             }
                         },
-                        onCopyAdb = {
+                        onCopyAdb = { tool ->
                             val cmd = if (tool.adbCommand.isNotEmpty()) {
                                 val opt = appliedOptions[tool.id]
-                                if (opt != null) {
-                                    tool.adbCommand.replace(Regex("(put \\w+ [^\\s]+ )(\\S+)"), "$1$opt")
-                                } else tool.adbCommand
+                                if (opt != null) tool.adbCommand.replace(Regex("(put \\w+ [^\\s]+ )(\\S+)"), "$1$opt") else tool.adbCommand
                             } else {
                                 "adb shell settings put ${tool.settingType.name.lowercase()} ${tool.settingKey} 1"
                             }
                             SystemDevBridge.copyToClipboard(context, cmd)
-                            coroutineScope.launch {
-                                snackbarHostState.showSnackbar("Comando ADB copiado al portapapeles")
-                            }
+                            coroutineScope.launch { snackbarHostState.showSnackbar("Comando copiado: $cmd") }
                         },
-                        onCardClick = {
-                            inspectTool = tool
-                        }
+                        onInspectTool = { inspectTool = it },
+                        listState = listState
                     )
+                }
+
+                SessionsViewModel.SESSIONS_MATRIX -> {
+                    // Visualizes all sessions as cards in a dashboard grid
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 4.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "PANEL MATRICIAL DE SESIONES",
+                                color = CyberBlueSecondary,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                fontFamily = FontFamily.Monospace
+                            )
+                            Text(
+                                text = "12 Sesiones Activas",
+                                color = TextMuted,
+                                fontSize = 10.sp,
+                                fontFamily = FontFamily.Monospace
+                            )
+                        }
+
+                        SessionsGridMatrix(
+                            allTools = allTools,
+                            language = currentLanguage,
+                            onSelectSession = { selectedCat ->
+                                selectedCategory = selectedCat
+                                currentViewModel = SessionsViewModel.ALL_SESSIONS_EXPANDED
+                            }
+                        )
+                    }
+                }
+
+                SessionsViewModel.INTERNET_NETWORK_HUB -> {
+                    // Dedicated Internet & Network Diagnostics + tools
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        InternetToolsCard(
+                            telemetry = telemetry,
+                            language = currentLanguage,
+                            onOpenDevSettings = { SystemDevBridge.openDeveloperSettings(context) }
+                        )
+
+                        Spacer(modifier = Modifier.height(4.dp))
+
+                        // Render network tools
+                        val networkTools = allTools.filter { it.category == DevCategory.NETWORK_ADB }
+                        Text(
+                            text = "HERRAMIENTAS DE RED, WI-FI Y ADB (${networkTools.size})",
+                            color = CyberBlueSecondary,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            fontFamily = FontFamily.Monospace,
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+                        )
+
+                        LazyColumn(
+                            modifier = Modifier.fillMaxSize(),
+                            contentPadding = PaddingValues(bottom = 80.dp)
+                        ) {
+                            items(networkTools, key = { it.id }) { tool ->
+                                DevToolCard(
+                                    tool = tool,
+                                    language = currentLanguage,
+                                    selectedOption = appliedOptions[tool.id],
+                                    onSelectOption = { value ->
+                                        appliedOptions[tool.id] = value
+                                        SystemDevBridge.applyOptionSafe(
+                                            context = context,
+                                            tool = tool,
+                                            optionValue = value,
+                                            onRequiresAdb = { cmd ->
+                                                coroutineScope.launch { snackbarHostState.showSnackbar("Comando ADB copiado: $cmd") }
+                                            }
+                                        )
+                                    },
+                                    onOpenSystemIntent = {
+                                        if (tool.intentAction.isNotEmpty()) {
+                                            SystemDevBridge.openIntentSafe(context, tool.intentAction)
+                                        } else {
+                                            SystemDevBridge.openDeveloperSettings(context)
+                                        }
+                                    },
+                                    onCopyAdb = {
+                                        val cmd = if (tool.adbCommand.isNotEmpty()) {
+                                            val opt = appliedOptions[tool.id]
+                                            if (opt != null) tool.adbCommand.replace(Regex("(put \\w+ [^\\s]+ )(\\S+)"), "$1$opt") else tool.adbCommand
+                                        } else {
+                                            "adb shell settings put ${tool.settingType.name.lowercase()} ${tool.settingKey} 1"
+                                        }
+                                        SystemDevBridge.copyToClipboard(context, cmd)
+                                        coroutineScope.launch { snackbarHostState.showSnackbar("Comando copiado: $cmd") }
+                                    },
+                                    onCardClick = { inspectTool = tool }
+                                )
+                            }
+                        }
+                    }
+                }
+
+                SessionsViewModel.FILTERED_LIST -> {
+                    // Category Filter Scrollable Chips
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState())
+                            .padding(horizontal = 16.dp, vertical = 4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        val isAllSelected = selectedCategory == null
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(if (isAllSelected) CyberBluePrimary else WolfDarkSurfaceVariant)
+                                .border(
+                                    1.dp,
+                                    if (isAllSelected) CyberBlueSecondary else WolfDarkBorder.copy(alpha = 0.4f),
+                                    RoundedCornerShape(8.dp)
+                                )
+                                .clickable { selectedCategory = null }
+                                .padding(horizontal = 12.dp, vertical = 6.dp)
+                                .testTag("cat_chip_all")
+                        ) {
+                            Text(
+                                text = "${LanguageManager.getUiString("all_categories", currentLanguage)} (${allTools.size})",
+                                color = if (isAllSelected) TextWhite else TextGray,
+                                fontSize = 11.sp,
+                                fontWeight = if (isAllSelected) FontWeight.Bold else FontWeight.Normal
+                            )
+                        }
+
+                        DevCategory.values().forEach { cat ->
+                            val isCatSelected = selectedCategory == cat
+                            val catCount = allTools.count { it.category == cat }
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(if (isCatSelected) CyberBluePrimary else WolfDarkSurfaceVariant)
+                                    .border(
+                                        1.dp,
+                                        if (isCatSelected) CyberBlueSecondary else WolfDarkBorder.copy(alpha = 0.4f),
+                                        RoundedCornerShape(8.dp)
+                                    )
+                                    .clickable { selectedCategory = cat }
+                                    .padding(horizontal = 12.dp, vertical = 6.dp)
+                                    .testTag("cat_chip_${cat.name}")
+                            ) {
+                                Text(
+                                    text = "${LanguageManager.getCategoryName(cat, currentLanguage)} ($catCount)",
+                                    color = if (isCatSelected) TextWhite else TextGray,
+                                    fontSize = 11.sp,
+                                    fontWeight = if (isCatSelected) FontWeight.Bold else FontWeight.Normal
+                                )
+                            }
+                        }
+                    }
+
+                    // Active Tool Results Counter
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 2.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "${filteredTools.size} HERRAMIENTAS ACTIVAS",
+                            color = TextMuted,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            fontFamily = FontFamily.Monospace
+                        )
+
+                        if (searchQuery.isNotEmpty() || selectedCategory != null) {
+                            Text(
+                                text = "Limpiar Filtros",
+                                color = CyberBlueSecondary,
+                                fontSize = 11.sp,
+                                modifier = Modifier.clickable {
+                                    searchQuery = ""
+                                    selectedCategory = null
+                                }
+                            )
+                        }
+                    }
+
+                    // Fluid LazyColumn for tools list
+                    LazyColumn(
+                        state = listState,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .testTag("tools_lazy_column"),
+                        contentPadding = PaddingValues(bottom = 80.dp)
+                    ) {
+                        items(
+                            items = filteredTools,
+                            key = { it.id }
+                        ) { tool ->
+                            DevToolCard(
+                                tool = tool,
+                                language = currentLanguage,
+                                selectedOption = appliedOptions[tool.id],
+                                onSelectOption = { value ->
+                                    appliedOptions[tool.id] = value
+                                    SystemDevBridge.applyOptionSafe(
+                                        context = context,
+                                        tool = tool,
+                                        optionValue = value,
+                                        onRequiresAdb = { cmd ->
+                                            coroutineScope.launch {
+                                                snackbarHostState.showSnackbar("Comando ADB copiado: $cmd")
+                                            }
+                                        }
+                                    )
+                                },
+                                onOpenSystemIntent = {
+                                    if (tool.intentAction.isNotEmpty()) {
+                                        SystemDevBridge.openIntentSafe(context, tool.intentAction)
+                                    } else {
+                                        SystemDevBridge.openDeveloperSettings(context)
+                                    }
+                                },
+                                onCopyAdb = {
+                                    val cmd = if (tool.adbCommand.isNotEmpty()) {
+                                        val opt = appliedOptions[tool.id]
+                                        if (opt != null) {
+                                            tool.adbCommand.replace(Regex("(put \\w+ [^\\s]+ )(\\S+)"), "$1$opt")
+                                        } else tool.adbCommand
+                                    } else {
+                                        "adb shell settings put ${tool.settingType.name.lowercase()} ${tool.settingKey} 1"
+                                    }
+                                    SystemDevBridge.copyToClipboard(context, cmd)
+                                    coroutineScope.launch {
+                                        snackbarHostState.showSnackbar("Comando ADB copiado al portapapeles")
+                                    }
+                                },
+                                onCardClick = {
+                                    inspectTool = tool
+                                }
+                            )
+                        }
+                    }
                 }
             }
         }
     }
 
     // Modal dialogs
+    if (showPermissionsModal) {
+        PermissionsManagerModal(
+            language = currentLanguage,
+            onDismiss = { showPermissionsModal = false }
+        )
+    }
+
     if (showLanguageDialog) {
         LanguageSelectorDialog(
             currentLanguage = currentLanguage,
@@ -577,6 +827,46 @@ fun MainScreen(
             },
             onDismiss = { inspectTool = null }
         )
+    }
+}
+
+@Composable
+private fun ModelTabPill(
+    icon: ImageVector,
+    label: String,
+    isSelected: Boolean,
+    onClick: () -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .clip(RoundedCornerShape(8.dp))
+            .background(if (isSelected) CyberBluePrimary else WolfDarkSurfaceVariant)
+            .border(
+                1.dp,
+                if (isSelected) CyberBlueSecondary else WolfDarkBorder.copy(alpha = 0.5f),
+                RoundedCornerShape(8.dp)
+            )
+            .clickable { onClick() }
+            .padding(horizontal = 10.dp, vertical = 6.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = if (isSelected) TextWhite else CyberBlueSecondary,
+                modifier = Modifier.size(14.dp)
+            )
+            Text(
+                text = label,
+                color = if (isSelected) TextWhite else TextGray,
+                fontSize = 11.sp,
+                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+            )
+        }
     }
 }
 

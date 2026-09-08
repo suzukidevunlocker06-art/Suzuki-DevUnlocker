@@ -37,8 +37,8 @@ jobs:
 
       - name: Ensure Keystore Exists
         run: |
-          if [ ! -f "my-upload-key.jks" ]; then
-            keytool -genkeypair -v -keystore my-upload-key.jks -alias upload -keyalg RSA -keysize 2048 -validity 10000 -storepass android -keypass android -dname "CN=Suzuki, OU=Dev, O=DevUnlocker, L=Tokyo, S=Tokyo, C=JP"
+          if [ ! -f "release.keystore" ]; then
+            keytool -genkeypair -v -keystore release.keystore -alias upload -keyalg RSA -keysize 2048 -validity 10000 -storepass android -keypass android -dname "CN=Suzuki, OU=Dev, O=DevUnlocker, L=Tokyo, S=Tokyo, C=JP"
           fi
 
       - name: Make gradlew executable

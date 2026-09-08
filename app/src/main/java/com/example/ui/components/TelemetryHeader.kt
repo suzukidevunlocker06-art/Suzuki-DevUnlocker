@@ -65,12 +65,13 @@ fun TelemetryHeader(
     telemetry: SystemTelemetry,
     language: AppLanguage,
     onOpenDevSettings: () -> Unit,
-    onOpenDeviceInfo: () -> Unit
+    onOpenDeviceInfo: () -> Unit,
+    onOpenPermissions: () -> Unit = {}
 ) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp)
+            .padding(horizontal = 16.dp, vertical = 6.dp)
             .testTag("telemetry_header_card"),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = WolfDarkSurface),
@@ -84,9 +85,9 @@ fun TelemetryHeader(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp)
+                .padding(14.dp)
         ) {
-            // Top status line
+            // Top status line with live internet and permissions shortcut
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -99,23 +100,55 @@ fun TelemetryHeader(
                             .clip(CircleShape)
                             .background(if (telemetry.isDevModeUnlocked) StatusGreen else StatusAmber)
                     )
-                    Spacer(modifier = Modifier.width(8.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
                     Text(
                         text = LanguageManager.getUiString("realtime_telemetry", language).uppercase(),
                         color = CyberBlueSecondary,
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
-                        letterSpacing = 1.sp,
+                        letterSpacing = 0.5.sp,
+                        fontFamily = FontFamily.Monospace
+                    )
+
+                    Spacer(modifier = Modifier.width(8.dp))
+
+                    // Live Internet status pill
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(4.dp))
+                            .background(if (telemetry.isInternetConnected) StatusGreen.copy(alpha = 0.15f) else StatusRed.copy(alpha = 0.15f))
+                            .border(1.dp, if (telemetry.isInternetConnected) StatusGreen.copy(alpha = 0.4f) else StatusRed.copy(alpha = 0.4f), RoundedCornerShape(4.dp))
+                            .padding(horizontal = 5.dp, vertical = 1.dp)
+                    ) {
+                        Text(
+                            text = if (telemetry.isInternetConnected) "🌐 ONLINE" else "🔴 OFFLINE",
+                            color = if (telemetry.isInternetConnected) StatusGreen else StatusRed,
+                            fontSize = 8.sp,
+                            fontWeight = FontWeight.Bold,
+                            fontFamily = FontFamily.Monospace
+                        )
+                    }
+                }
+
+                // Super Permissions button
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(CyberBluePrimary.copy(alpha = 0.2f))
+                        .border(1.dp, CyberBluePrimary, RoundedCornerShape(6.dp))
+                        .clickable { onOpenPermissions() }
+                        .padding(horizontal = 8.dp, vertical = 3.dp)
+                        .testTag("super_permissions_badge"),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "🛡️ SUPER PERMISOS",
+                        color = TextWhite,
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.Bold,
                         fontFamily = FontFamily.Monospace
                     )
                 }
-
-                Text(
-                    text = "${telemetry.refreshRateHz} Hz | ${telemetry.androidVersion}",
-                    color = TextGray,
-                    fontSize = 11.sp,
-                    fontFamily = FontFamily.Monospace
-                )
             }
 
             Spacer(modifier = Modifier.height(14.dp))
