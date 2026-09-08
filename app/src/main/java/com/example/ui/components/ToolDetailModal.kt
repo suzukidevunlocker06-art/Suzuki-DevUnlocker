@@ -17,12 +17,17 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Launch
+import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentCopy
-import androidx.compose.material.icons.filled.Launch
+import androidx.compose.material.icons.filled.DeveloperMode
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Security
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Terminal
+import androidx.compose.material.icons.filled.Wifi
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -68,7 +73,9 @@ fun ToolDetailModal(
     onSelectOption: (String) -> Unit,
     onOpenSystemIntent: () -> Unit,
     onCopyAdb: (String) -> Unit,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    onOpenWirelessDebugging: () -> Unit = {},
+    onOpenDeveloperOptions: () -> Unit = {}
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
@@ -342,43 +349,186 @@ fun ToolDetailModal(
                 }
             }
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(20.dp))
 
-            // Action Buttons
+            // ========================================================
+            // ACCIONES DIRECTAS EN TU TELÉFONO
+            // ========================================================
+            Text(
+                text = "⚡ ACCIONES DIRECTAS EN TU TELÉFONO",
+                color = CyberBlueSecondary,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Bold,
+                fontFamily = FontFamily.Monospace,
+                letterSpacing = 1.sp
+            )
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // Botón 1: Activar Depuración Inalámbrica
+            Button(
+                onClick = onOpenWirelessDebugging,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFF00E676).copy(alpha = 0.18f),
+                    contentColor = Color(0xFF00E676)
+                ),
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .border(1.5.dp, Color(0xFF00E676), RoundedCornerShape(12.dp))
+                    .testTag("modal_btn_wireless_debugging")
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Wifi,
+                        contentDescription = null,
+                        tint = Color(0xFF00E676),
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "📡 Activar Depuración Inalámbrica",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF00E676)
+                        )
+                        Text(
+                            text = "Abre la pantalla de Android para emparejar por Wi-Fi sin PC",
+                            fontSize = 11.sp,
+                            color = TextMuted
+                        )
+                    }
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.OpenInNew,
+                        contentDescription = null,
+                        tint = Color(0xFF00E676),
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // Botón 2: Abrir Ajustes de la Herramienta en el Teléfono
+            Button(
+                onClick = onOpenSystemIntent,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = CyberBluePrimary,
+                    contentColor = TextWhite
+                ),
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("modal_open_system_btn")
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Settings,
+                        contentDescription = null,
+                        tint = TextWhite,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "⚙️ Abrir Ajustes de esta Herramienta",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = TextWhite
+                        )
+                        Text(
+                            text = "Te lleva a la pantalla de configuración en tu teléfono",
+                            fontSize = 11.sp,
+                            color = TextGray
+                        )
+                    }
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.Launch,
+                        contentDescription = null,
+                        tint = TextWhite,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // Botones Secundarios: Opciones Desarrollador + Listo
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                Button(
-                    onClick = onOpenSystemIntent,
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = CyberBluePrimary,
-                        contentColor = TextWhite
-                    ),
+                OutlinedButton(
+                    onClick = onOpenDeveloperOptions,
                     shape = RoundedCornerShape(10.dp),
-                    modifier = Modifier
-                        .weight(1f)
-                        .testTag("modal_open_system_btn")
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = CyberBlueTertiary),
+                    modifier = Modifier.weight(1f)
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.Launch,
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp)
-                    )
+                    Icon(imageVector = Icons.Default.DeveloperMode, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        text = LanguageManager.getUiString("open_dev_settings", language),
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold
-                    )
+                    Text(text = "Opciones Dev", fontSize = 11.sp)
                 }
 
                 OutlinedButton(
                     onClick = onDismiss,
                     shape = RoundedCornerShape(10.dp),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = TextWhite)
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = TextWhite),
+                    modifier = Modifier.weight(1f)
                 ) {
-                    Text(text = "Listo", fontSize = 12.sp)
+                    Text(text = "Listo", fontSize = 11.sp)
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Guía Rápida de Depuración Inalámbrica
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(WolfDarkSurfaceVariant)
+                    .border(1.dp, WolfDarkBorder.copy(alpha = 0.5f), RoundedCornerShape(10.dp))
+                    .padding(12.dp)
+            ) {
+                Column {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.Info,
+                            contentDescription = null,
+                            tint = CyberBlueTertiary,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "¿Cómo usar Depuración Inalámbrica?",
+                            color = TextWhite,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    Text(
+                        text = "1. Toca «Activar Depuración Inalámbrica» para abrir Ajustes.\n" +
+                               "2. Pulsa «Vincular dispositivo con código de sincronización».\n" +
+                               "3. Copia el código de 6 dígitos y el puerto en Shizuku o LADB.\n" +
+                               "4. ¡Listo! Podrás aplicar cualquier ajuste sin computadora.",
+                        color = TextMuted,
+                        fontSize = 11.sp,
+                        lineHeight = 15.sp
+                    )
                 }
             }
         }

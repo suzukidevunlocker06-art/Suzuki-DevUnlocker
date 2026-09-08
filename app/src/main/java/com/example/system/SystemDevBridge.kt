@@ -368,8 +368,88 @@ object SystemDevBridge {
     }
 
     // ==========================================
-    // SYSTEM NAVIGATION
+    // SYSTEM NAVIGATION & WIRELESS DEBUGGING
     // ==========================================
+
+    fun openWirelessDebuggingSettings(context: Context): Boolean {
+        // Attempt 1: Standard Android 11+ (API 30+) Wireless Debugging Intent
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            try {
+                val intent = Intent("android.settings.WIFI_DEBUGGING_SETTINGS").apply {
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                }
+                context.startActivity(intent)
+                triggerHaptic(context)
+                return true
+            } catch (e: Exception) {
+                // Fallthrough to alternative intents
+            }
+        }
+
+        // Attempt 2: OEM specific action string (Xiaomi/Samsung/Motorola)
+        try {
+            val intent = Intent("com.android.settings.WIFI_DEBUGGING_SETTINGS").apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK
+            }
+            context.startActivity(intent)
+            triggerHaptic(context)
+            return true
+        } catch (e: Exception) {
+            // Fallthrough
+        }
+
+        // Attempt 3: Open Application Development Settings (where Wireless Debugging toggle is located)
+        return openDeveloperSettings(context)
+    }
+
+    fun openSmartToolSettings(context: Context, tool: DevTool): Boolean {
+        // 1. Direct tool intent if defined
+        if (tool.intentAction.isNotEmpty()) {
+            val launched = try {
+                val intent = Intent(tool.intentAction).apply {
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                }
+                context.startActivity(intent)
+                triggerHaptic(context)
+                true
+            } catch (e: Exception) {
+                false
+            }
+            if (launched) return true
+        }
+
+        // 2. Smart target by tool category & name
+        val nameLower = tool.name.lowercase()
+        return when {
+            nameLower.contains("adb") || nameLower.contains("inalámbric") || nameLower.contains("wireless") || nameLower.contains("depuración") -> {
+                openWirelessDebuggingSettings(context)
+            }
+            tool.category == com.example.model.DevCategory.NETWORK_ADB -> {
+                openIntentSafe(context, Settings.ACTION_WIFI_SETTINGS)
+            }
+            tool.category == com.example.model.DevCategory.INPUT_DISPLAY ||
+            tool.category == com.example.model.DevCategory.GPU_GRAPHICS ||
+            tool.category == com.example.model.DevCategory.GAMING_TWEAKS -> {
+                openIntentSafe(context, Settings.ACTION_DISPLAY_SETTINGS)
+            }
+            tool.category == com.example.model.DevCategory.BATTERY_THERMAL -> {
+                openIntentSafe(context, Settings.ACTION_BATTERY_SAVER_SETTINGS)
+            }
+            tool.category == com.example.model.DevCategory.AUDIO_MEDIA -> {
+                openIntentSafe(context, Settings.ACTION_SOUND_SETTINGS)
+            }
+            tool.category == com.example.model.DevCategory.SECURITY_PRIVACY -> {
+                openIntentSafe(context, Settings.ACTION_SECURITY_SETTINGS)
+            }
+            tool.category == com.example.model.DevCategory.ACCESSIBILITY_VISION -> {
+                openIntentSafe(context, Settings.ACTION_ACCESSIBILITY_SETTINGS)
+            }
+            tool.category == com.example.model.DevCategory.SYSTEM_UI -> {
+                openIntentSafe(context, Settings.ACTION_MANAGE_OVERLAY_PERMISSION)
+            }
+            else -> openDeveloperSettings(context)
+        }
+    }
 
     fun openDeveloperSettings(context: Context): Boolean {
         return try {

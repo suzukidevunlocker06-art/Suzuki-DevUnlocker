@@ -33,6 +33,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.BatteryChargingFull
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Code
@@ -41,7 +42,6 @@ import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.FlashOn
 import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.Language
-import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
@@ -96,6 +96,7 @@ import com.example.ui.components.LanguageSelectorDialog
 import com.example.ui.components.PermissionsManagerModal
 import com.example.ui.components.SessionsGridMatrix
 import com.example.ui.components.TelemetryHeader
+import com.example.ui.components.ToolConfigLauncherModal
 import com.example.ui.components.ToolDetailModal
 import com.example.ui.theme.CyberBluePrimary
 import com.example.ui.theme.CyberBlueSecondary
@@ -141,6 +142,7 @@ fun MainScreen(
     var selectedCategory by remember { mutableStateOf<DevCategory?>(null) }
     var showLanguageDialog by remember { mutableStateOf(false) }
     var inspectTool by remember { mutableStateOf<DevTool?>(null) }
+    var configLauncherTool by remember { mutableStateOf<DevTool?>(null) }
 
     // User-selected options state mapping: toolId -> optionValue
     val appliedOptions = remember { mutableStateMapOf<String, String>() }
@@ -365,7 +367,7 @@ fun MainScreen(
                 )
 
                 ModelTabPill(
-                    icon = Icons.Default.List,
+                    icon = Icons.AutoMirrored.Filled.List,
                     label = "Lista Continua",
                     isSelected = currentViewModel == SessionsViewModel.FILTERED_LIST,
                     onClick = { currentViewModel = SessionsViewModel.FILTERED_LIST }
@@ -427,7 +429,7 @@ fun MainScreen(
                 )
             }
 
-            // Suzuki Quick Presets Bar
+            // Quick Presets & System Navigation Bar
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -435,6 +437,25 @@ fun MainScreen(
                     .padding(horizontal = 16.dp, vertical = 3.dp),
                 horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
+                PresetChip(
+                    icon = Icons.Default.Wifi,
+                    label = "📡 Depuración Inalámbrica",
+                    onClick = {
+                        SystemDevBridge.openWirelessDebuggingSettings(context)
+                        coroutineScope.launch {
+                            snackbarHostState.showSnackbar("Abriendo Depuración Inalámbrica...")
+                        }
+                    }
+                )
+
+                PresetChip(
+                    icon = Icons.Default.DeveloperMode,
+                    label = "⚙️ Opciones Dev",
+                    onClick = {
+                        SystemDevBridge.openDeveloperSettings(context)
+                    }
+                )
+
                 PresetChip(
                     icon = Icons.Default.FlashOn,
                     label = "⚡ 0.5x Speed",
@@ -508,10 +529,12 @@ fun MainScreen(
                             )
                         },
                         onOpenSystemIntent = { tool ->
-                            if (tool.intentAction.isNotEmpty()) {
-                                SystemDevBridge.openIntentSafe(context, tool.intentAction)
-                            } else {
-                                SystemDevBridge.openDeveloperSettings(context)
+                            configLauncherTool = tool
+                        },
+                        onOpenWirelessDebugging = { tool ->
+                            SystemDevBridge.openWirelessDebuggingSettings(context)
+                            coroutineScope.launch {
+                                snackbarHostState.showSnackbar("Abriendo Depuración Inalámbrica para ${tool.name}...")
                             }
                         },
                         onCopyAdb = { tool ->
@@ -608,10 +631,12 @@ fun MainScreen(
                                         )
                                     },
                                     onOpenSystemIntent = {
-                                        if (tool.intentAction.isNotEmpty()) {
-                                            SystemDevBridge.openIntentSafe(context, tool.intentAction)
-                                        } else {
-                                            SystemDevBridge.openDeveloperSettings(context)
+                                        configLauncherTool = tool
+                                    },
+                                    onOpenWirelessDebugging = {
+                                        SystemDevBridge.openWirelessDebuggingSettings(context)
+                                        coroutineScope.launch {
+                                            snackbarHostState.showSnackbar("Abriendo Depuración Inalámbrica para ${tool.name}...")
                                         }
                                     },
                                     onCopyAdb = {
@@ -747,10 +772,12 @@ fun MainScreen(
                                     )
                                 },
                                 onOpenSystemIntent = {
-                                    if (tool.intentAction.isNotEmpty()) {
-                                        SystemDevBridge.openIntentSafe(context, tool.intentAction)
-                                    } else {
-                                        SystemDevBridge.openDeveloperSettings(context)
+                                    configLauncherTool = tool
+                                },
+                                onOpenWirelessDebugging = {
+                                    SystemDevBridge.openWirelessDebuggingSettings(context)
+                                    coroutineScope.launch {
+                                        snackbarHostState.showSnackbar("Abriendo Depuración Inalámbrica para ${tool.name}...")
                                     }
                                 },
                                 onCopyAdb = {
@@ -813,11 +840,16 @@ fun MainScreen(
                 )
             },
             onOpenSystemIntent = {
-                if (tool.intentAction.isNotEmpty()) {
-                    SystemDevBridge.openIntentSafe(context, tool.intentAction)
-                } else {
-                    SystemDevBridge.openDeveloperSettings(context)
+                SystemDevBridge.openSmartToolSettings(context, tool)
+            },
+            onOpenWirelessDebugging = {
+                SystemDevBridge.openWirelessDebuggingSettings(context)
+                coroutineScope.launch {
+                    snackbarHostState.showSnackbar("Abriendo Depuración Inalámbrica...")
                 }
+            },
+            onOpenDeveloperOptions = {
+                SystemDevBridge.openDeveloperSettings(context)
             },
             onCopyAdb = { cmd ->
                 SystemDevBridge.copyToClipboard(context, cmd)
@@ -826,6 +858,37 @@ fun MainScreen(
                 }
             },
             onDismiss = { inspectTool = null }
+        )
+    }
+
+    // Modal Lanzador Universal de Configuración & Depuración Inalámbrica
+    configLauncherTool?.let { tool ->
+        ToolConfigLauncherModal(
+            tool = tool,
+            language = currentLanguage,
+            selectedOption = appliedOptions[tool.id],
+            onOpenWirelessDebugging = {
+                SystemDevBridge.openWirelessDebuggingSettings(context)
+                coroutineScope.launch {
+                    snackbarHostState.showSnackbar("Abriendo Depuración Inalámbrica...")
+                }
+            },
+            onOpenSmartSettings = {
+                SystemDevBridge.openSmartToolSettings(context, tool)
+            },
+            onOpenDeveloperOptions = {
+                SystemDevBridge.openDeveloperSettings(context)
+            },
+            onOpenAboutPhone = {
+                SystemDevBridge.openDeviceInfoSettings(context)
+            },
+            onCopyAdb = { cmd ->
+                SystemDevBridge.copyToClipboard(context, cmd)
+                coroutineScope.launch {
+                    snackbarHostState.showSnackbar("Comando copiado: $cmd")
+                }
+            },
+            onDismiss = { configLauncherTool = null }
         )
     }
 }

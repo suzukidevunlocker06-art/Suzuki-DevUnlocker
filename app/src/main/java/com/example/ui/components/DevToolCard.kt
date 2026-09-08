@@ -19,9 +19,10 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Launch
 import androidx.compose.material.icons.filled.Code
-import androidx.compose.material.icons.filled.Launch
 import androidx.compose.material.icons.filled.Security
+import androidx.compose.material.icons.filled.Wifi
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -61,7 +62,8 @@ fun DevToolCard(
     onSelectOption: (String) -> Unit,
     onOpenSystemIntent: () -> Unit,
     onCopyAdb: () -> Unit,
-    onCardClick: () -> Unit
+    onCardClick: () -> Unit,
+    onOpenWirelessDebugging: () -> Unit = {}
 ) {
     Card(
         modifier = Modifier
@@ -126,8 +128,22 @@ fun DevToolCard(
                     }
                 }
 
-                // Action buttons: Open Native + Copy ADB
+                // Action buttons: Wireless Debugging + Copy ADB + Open Native Settings
                 Row(verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(
+                        onClick = onOpenWirelessDebugging,
+                        modifier = Modifier
+                            .size(32.dp)
+                            .testTag("open_wireless_adb_${tool.id}")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Wifi,
+                            contentDescription = "Activar Depuración Inalámbrica",
+                            tint = Color(0xFF00E676),
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+
                     if (tool.adbCommand.isNotEmpty()) {
                         IconButton(
                             onClick = onCopyAdb,
@@ -151,7 +167,7 @@ fun DevToolCard(
                             .testTag("open_intent_${tool.id}")
                     ) {
                         Icon(
-                            imageVector = Icons.Default.Launch,
+                            imageVector = Icons.AutoMirrored.Filled.Launch,
                             contentDescription = "Open in Android Settings",
                             tint = CyberBlueSecondary,
                             modifier = Modifier.size(16.dp)

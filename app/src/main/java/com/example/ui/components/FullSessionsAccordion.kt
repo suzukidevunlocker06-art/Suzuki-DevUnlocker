@@ -85,7 +85,8 @@ fun FullSessionsAccordion(
     onOpenSystemIntent: (DevTool) -> Unit,
     onCopyAdb: (DevTool) -> Unit,
     onInspectTool: (DevTool) -> Unit,
-    listState: LazyListState
+    listState: LazyListState,
+    onOpenWirelessDebugging: (DevTool) -> Unit = {}
 ) {
     val coroutineScope = rememberCoroutineScope()
     val categories = DevCategory.values().filter { toolsByCategory[it]?.isNotEmpty() == true }
@@ -300,7 +301,8 @@ fun FullSessionsAccordion(
                             onSelectOption = { value -> onSelectOption(tool, value) },
                             onOpenSystemIntent = { onOpenSystemIntent(tool) },
                             onCopyAdb = { onCopyAdb(tool) },
-                            onCardClick = { onInspectTool(tool) }
+                            onCardClick = { onInspectTool(tool) },
+                            onOpenWirelessDebugging = { onOpenWirelessDebugging(tool) }
                         )
                     }
                 }
