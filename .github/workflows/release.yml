@@ -2,6 +2,8 @@ name: Build & Publish Release APK
 
 on:
   push:
+    branches:
+      - main
     tags:
       - 'v*'
   workflow_dispatch:
@@ -33,17 +35,14 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v3
-
       - name: Ensure Keystore Exists
         run: |
           if [ ! -f "my-upload-key.jks" ]; then
             keytool -genkeypair -v -keystore my-upload-key.jks -alias upload -keyalg RSA -keysize 2048 -validity 10000 -storepass android -keypass android -dname "CN=Suzuki, OU=Dev, O=DevUnlocker, L=Tokyo, S=Tokyo, C=JP"
           fi
 
-      - name: Grant execute permission for gradlew
-        run: chmod +x ./gradlew
+      - name: Make gradlew executable
+        run: chmod +x gradlew ./gradlew
 
       - name: Build Release APK
         env:
@@ -51,11 +50,19 @@ jobs:
           KEY_PASSWORD: android
         run: ./gradlew :app:assembleRelease --no-daemon
 
-      - name: Prepare Release Artifacts
+      - name: Prepare Release Artifact
         run: |
           cp app/build/outputs/apk/release/app-release.apk ./Suzuki-DevUnlocker-v3.4.apk
 
+      - name: Upload Release APK as Downloadable Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Suzuki-DevUnlocker-v3.4-Release-APK
+          path: Suzuki-DevUnlocker-v3.4.apk
+          if-no-files-found: error
+
       - name: Create GitHub Release and Upload Assets
+        if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.event.inputs.tag_name || github.ref_name }}
