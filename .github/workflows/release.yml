@@ -1,0 +1,87 @@
+name: Build & Publish Release APK
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: 'Tag name for release (e.g. v3.4)'
+        required: true
+        default: 'v3.4'
+      release_title:
+        description: 'Release Title'
+        required: true
+        default: 'Suzuki DevUnlocker v3.4'
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    name: Build & Publish Release APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
+
+      - name: Ensure Keystore Exists
+        run: |
+          if [ ! -f "my-upload-key.jks" ]; then
+            keytool -genkeypair -v -keystore my-upload-key.jks -alias upload -keyalg RSA -keysize 2048 -validity 10000 -storepass android -keypass android -dname "CN=Suzuki, OU=Dev, O=DevUnlocker, L=Tokyo, S=Tokyo, C=JP"
+          fi
+
+      - name: Build Release APK
+        env:
+          STORE_PASSWORD: android
+          KEY_PASSWORD: android
+        run: ./gradlew :app:assembleRelease --no-daemon
+
+      - name: Prepare Release Artifacts
+        run: |
+          cp app/build/outputs/apk/release/app-release.apk ./Suzuki-DevUnlocker-v3.4.apk
+
+      - name: Create GitHub Release and Upload Assets
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event.inputs.tag_name || github.ref_name }}
+          name: ${{ github.event.inputs.release_title || format('Suzuki DevUnlocker {0}', github.ref_name) }}
+          files: |
+            Suzuki-DevUnlocker-v3.4.apk
+            app/build/outputs/apk/release/app-release.apk
+          body: |
+            ## 🐺 Suzuki DevUnlocker v3.4 — Official Release
+
+            ### 🚀 Características y Optimizaciones
+            - **312+ Herramientas Avanzadas**: GPU, Animaciones, Redes/ADB, Memoria RAM, Depuración/Logcat, Entrada Táctil, Audio, Sistema, Privacidad, Batería, Gaming y Accesibilidad.
+            - **1,800+ Opciones de Ajuste Fino**: Perfiles Suzuki Turbo, Ahorro de Energía, Baja Latencia y Diagnóstico.
+            - **Telemetría en Vivo**: Monitor continuo de FPS / Tasa de Refresco, memoria RAM disponible, temperatura y nivel de batería, estado de Developer Mode y ADB.
+            - **Presets Rápidos (1-Clic)**:
+              - ⚡ **0.5x Speed**: Aceleración inmediata de transiciones a 0.5x.
+              - 🎮 **Gaming Turbo**: 4x MSAA y máxima tasa de sondeo táctil.
+              - 🔋 **Eco Batería**: Hibernación activa de procesos de fondo.
+              - 📸 **Demo Screenshot**: Barra de estado impecable con batería al 100%.
+            - **Asistente de Activación**: Pasos guiados y enlace nativo a Ajustes del Sistema y Opciones de Desarrollador.
+            - **Soporte Multi-Idioma**: Español 🇪🇸, English 🇺🇸, Português 🇧🇷, Français 🇫🇷, Deutsch 🇩🇪, 中文 🇨🇳, 日本語 🇯🇵.
+
+            ### 📱 Compatibilidad
+            - Android 7.0 (Nougat, API 24) a Android 16 (Baklava, API 36).
+            - Arquitecturas: ARM64-v8a, ARMeabi-v7a, x86_64.
+
+            ### 📥 Instalación Directa
+            Descarga el archivo `Suzuki-DevUnlocker-v3.4.apk` adjunto a continuación e instálalo en tu dispositivo Android.
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
