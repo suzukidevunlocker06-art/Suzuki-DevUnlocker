@@ -1,0 +1,6 @@
+{
+  "name": "Suzuki DevUnlocker",
+  "description": "Herramienta en tiempo real para desbloquear y optimizar opciones de desarrollador en Android v3.4 con mas de 300 herramientas y 1500 opciones del sistema.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
