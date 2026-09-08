@@ -21,12 +21,12 @@ import androidx.compose.material.icons.automirrored.filled.Launch
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.DeveloperMode
+import androidx.compose.material.icons.filled.FlashOn
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Terminal
+import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.Wifi
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -281,71 +281,39 @@ fun ToolDetailModal(
                 }
             }
 
-            // Copyable ADB Command box
-            if (tool.adbCommand.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(18.dp))
+            // Botón de Aplicar Modificación Directa al Teléfono
+            Spacer(modifier = Modifier.height(16.dp))
 
-                Text(
-                    text = "COMANDO ADB SHELL (SUZUKI / PC)",
-                    color = CyberBlueSecondary,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold,
-                    fontFamily = FontFamily.Monospace,
-                    letterSpacing = 1.sp
-                )
-
-                Spacer(modifier = Modifier.height(6.dp))
-
-                val curAdbCmd = if (selectedOption != null) {
-                    tool.adbCommand.replace(Regex("(put \\w+ [^\\s]+ )(\\S+)"), "$1$selectedOption")
-                } else tool.adbCommand
-
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(10.dp))
-                        .background(WolfDarkBackground)
-                        .border(1.dp, WolfDarkBorder, RoundedCornerShape(10.dp))
-                        .clickable { onCopyAdb(curAdbCmd) }
-                        .padding(12.dp)
+            Button(
+                onClick = {
+                    val optionToApply = selectedOption ?: tool.options.firstOrNull()?.value ?: "1"
+                    onSelectOption(optionToApply)
+                },
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = CyberBlueSecondary,
+                    contentColor = WolfDarkBackground
+                ),
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("modal_btn_apply_modification")
+            ) {
+                Row(
+                    modifier = Modifier.padding(vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Terminal,
-                                contentDescription = null,
-                                tint = CyberBlueTertiary,
-                                modifier = Modifier.size(16.dp)
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = curAdbCmd,
-                                color = TextWhite,
-                                fontSize = 11.sp,
-                                fontFamily = FontFamily.Monospace,
-                                maxLines = 2
-                            )
-                        }
-
-                        IconButton(
-                            onClick = { onCopyAdb(curAdbCmd) },
-                            modifier = Modifier.size(28.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.ContentCopy,
-                                contentDescription = "Copy",
-                                tint = CyberBlueSecondary,
-                                modifier = Modifier.size(14.dp)
-                            )
-                        }
-                    }
+                    Icon(
+                        imageVector = Icons.Default.FlashOn,
+                        contentDescription = null,
+                        tint = WolfDarkBackground,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Text(
+                        text = "⚡ APLICAR MODIFICACIÓN A MI TELÉFONO",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold
+                    )
                 }
             }
 

@@ -503,11 +503,116 @@ object SystemDevBridge {
         }
     }
 
+    enum class ModifyResult {
+        APPLIED_DIRECTLY,
+        OPENED_SETTINGS,
+        OPENED_DEV_OPTIONS
+    }
+
+    /**
+     * Modifica el ajuste directamente en el teléfono.
+     * Si el sistema permite escritura directa (Settings.System / Global / Secure con permisos), lo aplica al instante.
+     * Si requiere intervención del usuario en el sistema Android, abre la pantalla exacta del teléfono para cambiarlo.
+     */
+    fun modifyPhoneSetting(
+        context: Context,
+        tool: DevTool,
+        optionValue: String
+    ): ModifyResult {
+        triggerHaptic(context)
+
+        var directSuccess = false
+        try {
+            when (tool.settingType) {
+                SettingType.SYSTEM -> {
+                    if (Settings.System.canWrite(context)) {
+                        directSuccess = Settings.System.putString(context.contentResolver, tool.settingKey, optionValue)
+                    } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                        val intent = Intent(Settings.ACTION_MANAGE_WRITE_SETTINGS).apply {
+                            data = Uri.parse("package:${context.packageName}")
+                            flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                        }
+                        context.startActivity(intent)
+                        return ModifyResult.OPENED_SETTINGS
+                    }
+                }
+                SettingType.GLOBAL -> {
+                    directSuccess = Settings.Global.putString(context.contentResolver, tool.settingKey, optionValue)
+                }
+                SettingType.SECURE -> {
+                    directSuccess = Settings.Secure.putString(context.contentResolver, tool.settingKey, optionValue)
+                }
+                SettingType.INTENT_ONLY -> {
+                    if (tool.intentAction.isNotEmpty()) {
+                        openIntentSafe(context, tool.intentAction)
+                        return ModifyResult.OPENED_SETTINGS
+                    }
+                }
+            }
+        } catch (_: Exception) {
+            directSuccess = false
+        }
+
+        if (directSuccess) {
+            return ModifyResult.APPLIED_DIRECTLY
+        }
+
+        // Si no se pudo modificar en segundo plano, abrir la pantalla de ajustes de esta herramienta en el teléfono
+        val opened = openSmartToolSettings(context, tool)
+        return if (opened) ModifyResult.OPENED_SETTINGS else ModifyResult.OPENED_DEV_OPTIONS
+    }
+
+    /**
+     * Modifica directamente los presets del teléfono
+     */
+    fun applyPresetSpeed(context: Context): Boolean {
+        triggerHaptic(context)
+        var applied = false
+        try {
+            Settings.Global.putString(context.contentResolver, "window_animation_scale", "0.5")
+            Settings.Global.putString(context.contentResolver, "transition_animation_scale", "0.5")
+            Settings.Global.putString(context.contentResolver, "animator_duration_scale", "0.5")
+            applied = true
+        } catch (_: Exception) {}
+        if (!applied) {
+            openDeveloperSettings(context)
+        }
+        return applied
+    }
+
+    fun applyPresetGaming(context: Context): Boolean {
+        triggerHaptic(context)
+        var applied = false
+        try {
+            Settings.Global.putString(context.contentResolver, "debug.egl.force_msaa", "1")
+            Settings.Global.putString(context.contentResolver, "debug.touch.gaming", "1")
+            applied = true
+        } catch (_: Exception) {}
+        if (!applied) {
+            openDeveloperSettings(context)
+        }
+        return applied
+    }
+
+    fun applyPresetEco(context: Context): Boolean {
+        triggerHaptic(context)
+        var applied = false
+        try {
+            Settings.Global.putString(context.contentResolver, "cached_apps_freezer", "enabled")
+            Settings.Global.putString(context.contentResolver, "background_process_limit", "2")
+            applied = true
+        } catch (_: Exception) {}
+        if (!applied) {
+            openIntentSafe(context, Settings.ACTION_BATTERY_SAVER_SETTINGS)
+        }
+        return applied
+    }
+
     fun applyOptionSafe(
         context: Context,
         tool: DevTool,
         optionValue: String,
-        onRequiresAdb: (String) -> Unit
+        onRequiresAdb: (String) -> Unit = {}
     ): Boolean {
         triggerHaptic(context)
 

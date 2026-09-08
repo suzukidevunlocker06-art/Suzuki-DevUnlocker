@@ -147,6 +147,22 @@ fun MainScreen(
     // User-selected options state mapping: toolId -> optionValue
     val appliedOptions = remember { mutableStateMapOf<String, String>() }
 
+    // Direct phone modification handler (modifies Android system or navigates to setting)
+    val handleModifyTool: (DevTool, String) -> Unit = { tool, value ->
+        appliedOptions[tool.id] = value
+        val result = SystemDevBridge.modifyPhoneSetting(context, tool, value)
+        coroutineScope.launch {
+            when (result) {
+                SystemDevBridge.ModifyResult.APPLIED_DIRECTLY ->
+                    snackbarHostState.showSnackbar("⚡ Modificado en tu teléfono: ${tool.name}")
+                SystemDevBridge.ModifyResult.OPENED_SETTINGS ->
+                    snackbarHostState.showSnackbar("⚙️ Abriendo configuración de ${tool.name} en el teléfono...")
+                SystemDevBridge.ModifyResult.OPENED_DEV_OPTIONS ->
+                    snackbarHostState.showSnackbar("⚡ Abriendo opciones del teléfono para ${tool.name}...")
+            }
+        }
+    }
+
     // Filtered tools with derivedStateOf for fluid scrolling
     val allTools = remember { DevToolsCatalog.allTools }
     val filteredTools by remember(searchQuery, selectedCategory) {
@@ -460,11 +476,13 @@ fun MainScreen(
                     icon = Icons.Default.FlashOn,
                     label = "⚡ 0.5x Speed",
                     onClick = {
+                        val modified = SystemDevBridge.applyPresetSpeed(context)
                         coroutineScope.launch {
-                            val cmd = "adb shell settings put global window_animation_scale 0.5 && adb shell settings put global transition_animation_scale 0.5 && adb shell settings put global animator_duration_scale 0.5"
-                            SystemDevBridge.copyToClipboard(context, cmd)
-                            snackbarHostState.showSnackbar("⚡ Presets 0.5x copiado. Abre Ajustes de Desarrollador para aplicar.")
-                            SystemDevBridge.openDeveloperSettings(context)
+                            if (modified) {
+                                snackbarHostState.showSnackbar("⚡ Velocidad 0.5x aplicada a tu teléfono.")
+                            } else {
+                                snackbarHostState.showSnackbar("⚡ Abriendo opciones del teléfono para velocidad 0.5x...")
+                            }
                         }
                     }
                 )
@@ -473,11 +491,13 @@ fun MainScreen(
                     icon = Icons.Default.SportsEsports,
                     label = "🎮 Gaming Turbo",
                     onClick = {
+                        val modified = SystemDevBridge.applyPresetGaming(context)
                         coroutineScope.launch {
-                            val cmd = "adb shell settings put global debug.egl.force_msaa 1 && adb shell setprop debug.touch.gaming 1"
-                            SystemDevBridge.copyToClipboard(context, cmd)
-                            snackbarHostState.showSnackbar("🎮 Perfil Gaming Turbo copiado al portapapeles.")
-                            SystemDevBridge.openDeveloperSettings(context)
+                            if (modified) {
+                                snackbarHostState.showSnackbar("🎮 Modo Gaming Turbo modificado en tu teléfono.")
+                            } else {
+                                snackbarHostState.showSnackbar("🎮 Abriendo opciones para Gaming Turbo...")
+                            }
                         }
                     }
                 )
@@ -486,22 +506,24 @@ fun MainScreen(
                     icon = Icons.Default.BatteryChargingFull,
                     label = "🔋 Eco Batería",
                     onClick = {
+                        val modified = SystemDevBridge.applyPresetEco(context)
                         coroutineScope.launch {
-                            val cmd = "adb shell settings put global cached_apps_freezer enabled && adb shell settings put global background_process_limit 2"
-                            SystemDevBridge.copyToClipboard(context, cmd)
-                            snackbarHostState.showSnackbar("🔋 Perfil Eco Batería copiado al portapapeles.")
+                            if (modified) {
+                                snackbarHostState.showSnackbar("🔋 Perfil Eco Batería modificado en tu teléfono.")
+                            } else {
+                                snackbarHostState.showSnackbar("🔋 Abriendo opciones para ahorro de batería...")
+                            }
                         }
                     }
                 )
 
                 PresetChip(
-                    icon = Icons.Default.PhotoCamera,
-                    label = "📸 Demo Screenshot",
+                    icon = Icons.Default.Wifi,
+                    label = "📡 Depuración Wi-Fi",
                     onClick = {
+                        SystemDevBridge.openWirelessDebuggingSettings(context)
                         coroutineScope.launch {
-                            val cmd = "adb shell am broadcast -a com.android.systemui.demo -e command enter -e battery level 100 -e clock hhmm 1200"
-                            SystemDevBridge.copyToClipboard(context, cmd)
-                            snackbarHostState.showSnackbar("📸 Modo Demo capturas listo.")
+                            snackbarHostState.showSnackbar("📡 Abriendo Depuración Inalámbrica en tu teléfono...")
                         }
                     }
                 )
@@ -518,15 +540,7 @@ fun MainScreen(
                         language = currentLanguage,
                         appliedOptions = appliedOptions,
                         onSelectOption = { tool, value ->
-                            appliedOptions[tool.id] = value
-                            SystemDevBridge.applyOptionSafe(
-                                context = context,
-                                tool = tool,
-                                optionValue = value,
-                                onRequiresAdb = { cmd ->
-                                    coroutineScope.launch { snackbarHostState.showSnackbar("Comando ADB copiado: $cmd") }
-                                }
-                            )
+                            handleModifyTool(tool, value)
                         },
                         onOpenSystemIntent = { tool ->
                             configLauncherTool = tool
@@ -620,15 +634,7 @@ fun MainScreen(
                                     language = currentLanguage,
                                     selectedOption = appliedOptions[tool.id],
                                     onSelectOption = { value ->
-                                        appliedOptions[tool.id] = value
-                                        SystemDevBridge.applyOptionSafe(
-                                            context = context,
-                                            tool = tool,
-                                            optionValue = value,
-                                            onRequiresAdb = { cmd ->
-                                                coroutineScope.launch { snackbarHostState.showSnackbar("Comando ADB copiado: $cmd") }
-                                            }
-                                        )
+                                        handleModifyTool(tool, value)
                                     },
                                     onOpenSystemIntent = {
                                         configLauncherTool = tool
@@ -759,17 +765,7 @@ fun MainScreen(
                                 language = currentLanguage,
                                 selectedOption = appliedOptions[tool.id],
                                 onSelectOption = { value ->
-                                    appliedOptions[tool.id] = value
-                                    SystemDevBridge.applyOptionSafe(
-                                        context = context,
-                                        tool = tool,
-                                        optionValue = value,
-                                        onRequiresAdb = { cmd ->
-                                            coroutineScope.launch {
-                                                snackbarHostState.showSnackbar("Comando ADB copiado: $cmd")
-                                            }
-                                        }
-                                    )
+                                    handleModifyTool(tool, value)
                                 },
                                 onOpenSystemIntent = {
                                     configLauncherTool = tool
@@ -827,17 +823,7 @@ fun MainScreen(
             language = currentLanguage,
             selectedOption = appliedOptions[tool.id],
             onSelectOption = { value ->
-                appliedOptions[tool.id] = value
-                SystemDevBridge.applyOptionSafe(
-                    context = context,
-                    tool = tool,
-                    optionValue = value,
-                    onRequiresAdb = { cmd ->
-                        coroutineScope.launch {
-                            snackbarHostState.showSnackbar("Comando ADB copiado: $cmd")
-                        }
-                    }
-                )
+                handleModifyTool(tool, value)
             },
             onOpenSystemIntent = {
                 SystemDevBridge.openSmartToolSettings(context, tool)
@@ -853,9 +839,6 @@ fun MainScreen(
             },
             onCopyAdb = { cmd ->
                 SystemDevBridge.copyToClipboard(context, cmd)
-                coroutineScope.launch {
-                    snackbarHostState.showSnackbar("Comando copiado: $cmd")
-                }
             },
             onDismiss = { inspectTool = null }
         )
@@ -882,11 +865,8 @@ fun MainScreen(
             onOpenAboutPhone = {
                 SystemDevBridge.openDeviceInfoSettings(context)
             },
-            onCopyAdb = { cmd ->
-                SystemDevBridge.copyToClipboard(context, cmd)
-                coroutineScope.launch {
-                    snackbarHostState.showSnackbar("Comando copiado: $cmd")
-                }
+            onApplyOption = { value ->
+                handleModifyTool(tool, value)
             },
             onDismiss = { configLauncherTool = null }
         )
